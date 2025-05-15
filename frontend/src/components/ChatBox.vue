@@ -1,117 +1,169 @@
 <template>
-    <div class="chat-box shadow-lg p-4 bg-gray-400 w-full">
-        <!-- Top Bar -->
-        <div class="h-8 text-gray-700 mb-4">
-            <h2 class="text-lg font-semibold">{{ selectedUser ? selectedUser.name : 'Select a chat' }}
-            </h2>
-        </div>
-        <div ref="messagesContainer"
-            class="messages h-[calc(100vh-16rem)] overflow-y-auto mb-6 rounded-lg scrollbar-none scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-            <div v-if="!selectedUser" class="text-center text-gray-500">
-                Select a user to start chatting
+    <div class="chat-box shadow-lg bg-gray-400 w-full h-[calc(100vh-6rem)] flex">
+        <div v-if="selectedChat" :class="['chat-content', { 'shrink': isShowDetail }]"
+            class="flex-1 flex flex-col p-4 transition-width duration-300 ease-in-out">
+            <!-- Top Bar -->
+            <div class="h-8 text-gray-700 mb-4 px-2 flex items-center justify-between">
+                <h2 class="text-lg font-semibold">{{ selectedChat ? selectedChat.name : 'Select a chat' }}
+                </h2>
+                <Icon @click="onIconClick" name="info" customClass="w-5 h-5 text-gray-600 hover:text-gray-800" />
             </div>
-            <Message v-for="(message, index) in messages" :key="index" :text="message.text" :sender="message.sender"
-                :timestamp="message.timestamp" :isOwnMessage="message.sender === currentUser.username" />
+            <TransitionGroup name="message-fade" tag="div" ref="messagesContainer"
+                class="messages flex-1 overflow-y-auto mb-6 rounded-lg scrollbar-none scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+
+                <Message v-for="(message, index) in messages" :key="index" :message="message" />
+
+            </TransitionGroup>
+
+            <!-- Input Area -->
+            <div class="input-area flex gap-2 rounded-lg overflow-hidden bg-gray-300">
+                <input v-model="newMessage" @keyup.enter="sendMessage" type="text" placeholder="Type a message..."
+                    class="flex-1 p-3 focus:outline-none bg-transparent" />
+                <button @click="sendMessage" class=" text-gray-500 p-3 transition duration-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div v-else class="flex-1 p-4 flex items-center justify-center w-full h-full">
+            <div class="text-center text-gray-500">
+                <h3>Welcome!</h3>
+                Select a chat to start chatting
+            </div>
         </div>
 
-        <!-- Input Area -->
-        <div class="input-area flex gap-2 rounded-lg overflow-hidden bg-gray-300">
-            <input v-model="newMessage" @keyup.enter="sendMessage" type="text" placeholder="Type a message..."
-                class="flex-1 p-3 focus:outline-none bg-transparent" />
-            <button @click="sendMessage" class=" text-gray-500 p-3 transition duration-200">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-            </button>
-        </div>
+        <Transition name="slide-fade">
+            <div v-if="isShowDetail && selectedChat" class="w-80">
+                <ChatDetail :chat="selectedChat" />
+            </div>
+        </Transition>
     </div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue'
+<script lang="ts" setup>
+import { ref, watch, nextTick, defineProps, onUnmounted } from 'vue'
+import { v4 as uuidv4 } from 'uuid'
+
 import Message from './Message.vue'
-import { Message as MessageType, User } from '../types'
-import { nextTick } from 'vue'
+import Icon from './base/Icon.vue'
+import ChatDetail from './ChatDetail.vue'
 
-export default defineComponent({
-    name: 'ChatBox',
-    components: { Message },
-    props: {
-        selectedUser: {
-            type: Object,
-            default: null
-        }
-    },
-    data() {
-        return {
-            newMessage: '' as string,
-            currentUser: { id: '1', username: 'You' } as User,
-            chatData: {
-                1: [
-                    { text: 'Hey, how are you?', sender: 'John Doe', timestamp: new Date(), isMine: false },
-                    { text: 'I’m good, thanks!', sender: 'You', timestamp: new Date(), isMine: true }
-                ],
-                2: [
-                    { text: 'See you tomorrow!', sender: 'Jane Smith', timestamp: new Date(), isMine: false },
-                    { text: 'Sure thing!', sender: 'You', timestamp: new Date(), isMine: true }
-                ],
-                3: [
-                    { text: 'Anyone free tonight?', sender: 'Group Chat', timestamp: new Date(), isMine: false },
-                    { text: 'I’m in!', sender: 'You', timestamp: new Date(), isMine: true }
-                ]
-            } as { [key: string]: MessageType[] }
-        }
-    },
-    computed: {
-        messages(): MessageType[] {
-            if (!this.selectedUser) return [];
-            return this.chatData[this.selectedUser.id] || [];
-        }
-    },
-    methods: {
-        sendMessage() {
-            if (this.newMessage.trim() && this.selectedUser) {
-                const newMsg: MessageType = {
-                    text: this.newMessage,
-                    sender: this.currentUser.username,
-                    timestamp: new Date(),
-                    isMine: true
-                };
-                if (!this.chatData[this.selectedUser.id]) {
-                    this.chatData[this.selectedUser.id] = [];
-                }
-                this.chatData[this.selectedUser.id].push(newMsg);
-                this.newMessage = '';
-                // TODO: Integrate with WebSocket to send to backend
+import type { Chat, Message as MessageType, User } from '../types'
 
-                this.scrollToBottom();
-            }
-        },
+// Props
+const props = defineProps<{
+    selectedChat: Chat | null
+}>()
 
-        scrollToBottom() {
-            nextTick(() => {
-                const messagesContainer = this.$refs.messagesContainer as HTMLElement;
-                if (messagesContainer) {
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                }
-            });
-        }
+// State
+const isShowDetail = ref(false)
+const newMessage = ref('')
+const currentUser = ref<User>({ id: '1', username: 'You', name: 'You' })
+const messages = ref<MessageType[]>([])
+    const { ws, connectWebSocket, disconnectWebSocket } = useWebSocket(
+    currentUser.value,
+    props.selectedChat,
+    (msg: MessageType) => {
+        messages.value.push(msg)
+        scrollToBottom()
     }
-})
+)
+
+// Methods
+async function loadMessages() {
+    if (!props.selectedChat) return
+
+    try {
+        messages.value = await fetchMessages(props.selectedChat.id);
+        scrollToBottom()
+    } catch (error) {
+        console.error('Failed to fetch messages:', error)
+    }
+}
+
+function sendMessage() {
+    if (
+        newMessage.value.trim() && 
+        props.selectedChat && 
+        ws.value &&
+        ws.value.readyState === WebSocket.OPEN
+    ) {
+        const newMsg: MessageType = {
+            id: uuidv4(),
+            content: newMessage.value,
+            senderId: currentUser.value.id,
+            senderName: currentUser.value.name,
+            timestamp: new Date().toISOString(),
+            type: 'text',
+            isMine: true,
+        };
+        ws.value.send(JSON.stringify({
+            recipientId: props.selectedChat.id,
+            text: newMessage.value
+        }));
+
+        messages.value.push(newMsg)
+        newMessage.value = ''
+
+        scrollToBottom()
+    }
+}
+
+function onIconClick() {
+    isShowDetail.value = !isShowDetail.value
+}
+
+function scrollToBottom() {
+    nextTick(() => {
+        const messagesContainer = refs.messagesContainer.value
+        if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight
+        }
+    })
+}
+
+// Watchers
+watch(() => props.selectedChat, () => {
+    loadMessages();
+    connectWebSocket();
+}, { immediate: true })
+
+watch(messages, () => {
+    scrollToBottom()
+}, { deep: true })
+
+// Refs (template refs)
+import { ref as vueRef } from 'vue'
+import { fetchMessages } from '@/api/chat'
+import { useWebSocket } from '@/composables/useWebSocket'
+const refs = {
+    messagesContainer: vueRef<HTMLElement | null>(null)
+}
+
+// Cleanup
+onUnmounted(() => {
+    if (ws.value) {
+        ws.value.close();
+    }
+});
 </script>
 
-<style scoped>
+
+<style scoped lang="css">
 .chat-box {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
 }
 
 .messages {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    scroll-behavior: smooth;
+    flex-grow: 1;
 }
 
 /* Custom scrollbar */
@@ -126,5 +178,69 @@ export default defineComponent({
 
 .scrollbar-track-gray-100::-webkit-scrollbar-track {
     background-color: #f3f4f6;
+}
+
+.message-fade-enter-active,
+.message-fade-leave-active {
+    transition: all 0.3s ease;
+}
+
+.message-fade-enter-from {
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+.message-fade-enter-to {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.message-fade-leave-from {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.message-fade-leave-to {
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+.chat-content {
+    transition: width 0.3s ease-in-out;
+    width: 100%;
+}
+
+.chat-content.shrink {
+    width: calc(100% - 20rem);
+    /* Trừ đi chiều rộng của ChatDetail (w-80 = 20rem) + margin */
+}
+
+
+.slide-fade-enter-active {
+    transition: all 0.3s ease;
+}
+
+.slide-fade-leave-active {
+    transition: all 0.3s ease;
+}
+
+.slide-fade-enter-from {
+    transform: translateX(100%);
+    opacity: 0;
+}
+
+.slide-fade-enter-to {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.slide-fade-leave-from {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.slide-fade-leave-to {
+    transform: translateX(100%);
+    opacity: 0;
 }
 </style>

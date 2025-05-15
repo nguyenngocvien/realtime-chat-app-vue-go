@@ -1,43 +1,26 @@
 <template>
-    <div :class="['message', isOwnMessage ? 'own-message' : 'other-message']">
+    <div :class="['message', message?.isMine ? 'own-message' : 'other-message']">
         <!-- <p class="text-xs text-gray-500 mb-1 px-1">{{ sender }}</p> -->
         <div class="message-content p-3 rounded-lg transition duration-200 hover:shadow-sm bg-white">
-            <p class="text-gray-700">{{ text }}</p>
+            <p class="text-gray-700">{{ message?.content }}</p>
         </div>
-        <small  :class="['text-xs text-gray-500 mt-1 px-1', isOwnMessage ? 'text-right' : 'text-left']">{{ formattedTime }}</small>
+        <small :class="['text-xs text-gray-500 mt-1 px-1', message?.isMine ? 'text-right' : 'text-left']">{{
+            formattedTime }}</small>
     </div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue'
+<script lang="ts" setup>
+import { computed } from 'vue'
+import type { Message } from '@/types'
 
-export default defineComponent({
-    name: 'Message',
-    props: {
-        text: {
-            type: String,
-            required: true
-        },
-        sender: {
-            type: String,
-            required: true
-        },
-        isOwnMessage: {
-            type: Boolean,
-            required: true
-        },
-        timestamp: {
-            type: Date,
-            default: () => new Date()
-        }
-    },
-    computed: {
-        formattedTime(): string {
-            return this.timestamp
-                ? new Date(this.timestamp).toLocaleTimeString()
-                : new Date().toLocaleTimeString()
-        }
-    }
+const props = defineProps<{
+    message: Message
+}>()
+
+const formattedTime = computed(() => {
+    return props.message?.timestamp
+        ? new Date(props.message.timestamp).toLocaleTimeString()
+        : new Date().toLocaleTimeString()
 })
 </script>
 

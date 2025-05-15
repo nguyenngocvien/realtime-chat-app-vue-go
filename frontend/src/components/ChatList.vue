@@ -2,12 +2,7 @@
     <div class="chat-list h-full p-4">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold text-gray-800">Chats</h3>
-            <button @click="showModal = true" class="text-gray-500 hover:text-gray-700 p-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-            </button>
+            <Icon @click="showModal = true" name="plus" customClass="w-4 h-4 text-gray-500 hover:text-gray-700" />
         </div>
         <ul class="space-y-2">
             <li v-for="(chat, index) in chats" :key="index" @click="selectChat(chat)"
@@ -18,7 +13,7 @@
                 <div class="flex items-center gap-3">
                     <div
                         class="relative w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                        <template v-if="chat.isGroup">
+                        <template v-if="chat.type === 'group'">
                             <!-- Group Icon SVG -->
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-gray-600" fill="none"
                                 viewBox="0 0 24 24" stroke="currentColor">
@@ -27,7 +22,16 @@
                             </svg>
                         </template>
                         <template v-else>
-                            <img :src="chat.avatar" alt="Avatar" class="w-10 h-10 rounded-full" />
+                            <div>
+                                <img v-if="chat.avatar && !imageError" :src="chat.avatar" alt="Avatar"
+                                    class="w-10 h-10 rounded-full" @error="imageError = true" />
+                                <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                    stroke-width="1.5" stroke="currentColor" class="w-10 h-10 text-gray-400">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                                </svg>
+                            </div>
+
                         </template>
                     </div>
                     <div>
@@ -35,21 +39,19 @@
                         <p class="text-sm truncate"
                             :class="{ 'text-gray-800 font-semibold': chat.unreadCount > 0, 'text-gray-600': chat.unreadCount === 0 }">
                             {{
-                                chat.lastMessage }}</p>
+                                chat.lastMessage?.content }}</p>
                     </div>
                 </div>
             </li>
         </ul>
 
-
         <!-- Modal create -->
         <div v-if="showModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-lg shadow-lg p-6 w-80">
                 <input v-model="newGroupName" type="text" placeholder="Name"
-                    class="w-full p-2 border border-gray-300 rounded mb-8 focus:outline-none"/>
+                    class="w-full p-2 border border-gray-300 rounded mb-8 focus:outline-none" />
                 <div class="flex justify-end gap-2">
-                    <button @click="showModal = false"
-                        class="p-2 rounded bg-gray-300 hover:bg-gray-400">Cancel</button>
+                    <button @click="showModal = false" class="p-2 rounded bg-gray-300 hover:bg-gray-400">Cancel</button>
                     <button @click="createGroup"
                         class="p-2 rounded bg-blue-500 text-white hover:bg-blue-600">Create</button>
                 </div>
@@ -58,69 +60,83 @@
     </div>
 </template>
 
-<script lang="ts">
-import { ComponentPublicInstance, defineComponent } from 'vue'
+<script lang="ts" setup>
+import { ref, reactive, onMounted, nextTick, ComponentPublicInstance } from 'vue'
+import { fetchChatsByUserId } from '@/api/chat'
+import type { Chat } from '@/types'
+import Icon from './base/Icon.vue'
 
-export default defineComponent({
-    name: 'ChatList',
-    props: {
-        selectedUser: {
-            type: Object,
-            default: null
-        }
-    },
-    emits: ['select-user'],
-    data() {
-        return {
-            chats: [
-                { id: 1, name: 'John Doe', lastMessage: 'Hey, how are you?', avatar: '@/assets/images/avatar.png', unreadCount: 2 },
-                { id: 2, name: 'Jane Smith', lastMessage: 'See you tomorrow!', avatar: '@/assets/images/avatar.png', unreadCount: 0 },
-                { id: 3, name: 'Team Alpha', lastMessage: 'Anyone free tonight?', isGroup: true, unreadCount: 5 }
-            ],
-            showModal: false,
-            newGroupName: '',
-            selectedChatId: 0,
-            chatRefs: {} as Record<number, Element | ComponentPublicInstance | null>
-        }
-    },
-    methods: {
-        selectChat(chat: any) {
-            this.selectedChatId = chat.id;
-            this.$emit('select-user', chat);
+const props = defineProps<{
+    selectedChat: Chat | null
+}>()
 
-            // Auto scroll to item is selected
-            this.$nextTick(() => {
-                const el = this.chatRefs[chat.id];
-                if (el && 'scrollIntoView' in el) {
-                    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }
-            });
+const emit = defineEmits<{
+    (e: 'select-chat', chat: Chat): void
+}>()
 
-            // Reset unread count khi click vào
-            if (chat.unreadCount > 0) {
-                chat.unreadCount = 0;
-            }
-        },
-        createGroup() {
-            if (this.newGroupName.trim() === '') {
-                alert('Please enter group name');
-                return;
-            }
+const chats = ref<Chat[]>([])
+const showModal = ref(false)
+const newGroupName = ref('')
+const selectedChatId = ref('')
+const imageError = ref(false)
 
-            // add new group to lists
-            this.chats.push({
-                name: this.newGroupName,
-                lastMessage: 'Group has been created',
-                isGroup: true,
-                unreadCount: 0,
-                id: this.chats.length + 1
-            });
+// chatRefs: map lưu ref phần tử chat item, dùng cho scrollIntoView
+const chatRefs = reactive<Record<string, Element | ComponentPublicInstance  | null>>({})
 
-            // Reset & close modal
-            this.newGroupName = '';
-            this.showModal = false;
-        }
+async function loadChats() {
+    const userId = '1' // giả sử userId = 1, có thể lấy từ auth hoặc props
+    try {
+        chats.value = await fetchChatsByUserId(userId)
+    } catch (error) {
+        console.error('Failed to load chats:', error)
     }
+}
+
+function selectChat(chat: Chat) {
+    selectedChatId.value = chat.id
+    emit('select-chat', chat)
+
+    nextTick(() => {
+        const el = chatRefs[chat.id]
+        if (el instanceof HTMLElement) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }
+    })
+
+    if (chat.unreadCount > 0) {
+        chat.unreadCount = 0
+    }
+}
+
+function createGroup() {
+    if (newGroupName.value.trim() === '') {
+        alert('Please enter group name')
+        return
+    }
+
+    chats.value.push({
+        id: (chats.value.length + 1).toString(),
+        name: newGroupName.value,
+        lastMessage: {
+            id: '0',
+            content: 'Group has been created',
+            senderId: '',
+            senderName: '',
+            timestamp: new Date().toISOString(),
+            type: 'text',
+            isMine: false
+        },
+        type: 'group',
+        unreadCount: 0,
+        avatar: '' // nếu cần avatar mặc định
+    })
+
+    newGroupName.value = ''
+    showModal.value = false
+}
+
+onMounted(() => {
+    loadChats()
 })
 </script>
 
@@ -131,7 +147,7 @@ export default defineComponent({
 
 @media (min-width: 768px) {
     .chat-list {
-        width: 300px;
+        width: 280px;
         /* Desktop */
     }
 }

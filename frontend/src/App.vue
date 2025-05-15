@@ -1,14 +1,14 @@
 <template>
-  <div class="min-h-screen bg-gray-500">
+  <div class="h-screen flex flex-col bg-gray-500">
     <!-- Top Bar -->
     <div class="flex justify-center">
       <TopBar />
     </div>
 
     <!-- Main Layout -->
-    <div class="flex justify-center">
+    <div class="flex-1 justify-center">
       <!-- Main Content -->
-      <main class="flex p-4 w-full justify-center">
+      <main class="flex px-4 w-full justify-center">
         <router-view />
       </main>
     </div>
