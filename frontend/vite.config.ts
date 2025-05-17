@@ -7,7 +7,8 @@ export default defineConfig({
     port: 3000,
     fs: {
       strict: false
-    }
+    },
+    host: true,
   },
   resolve: {
     alias: {

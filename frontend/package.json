@@ -2,7 +2,7 @@
   "name": "realtime-chat-frontend",
   "version": "0.1.0",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vue-tsc --noEmit && vite build",
     "serve": "vite preview"
   },

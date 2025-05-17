@@ -8,4 +8,5 @@ type Message struct {
 	RecipientID string    `gorm:"not null"`
 	Text        string    `gorm:"not null"`
 	Timestamp   time.Time `gorm:"not null"`
+	Read        bool      `gorm:"default:false"`
 }
