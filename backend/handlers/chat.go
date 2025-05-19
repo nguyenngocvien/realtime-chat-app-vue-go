@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -100,5 +101,37 @@ func GetChatsByUserID(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"chats": response,
+	})
+}
+
+func GetMessagesByChatID(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chatID := vars["chatId"]
+
+	// Lấy query params cho phân trang
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if limit <= 0 {
+		limit = 50 // Mặc định 50 tin nhắn
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	var messages []models.Message
+	if err := db.Where("chat_id = ?", chatID).
+		Order("timestamp DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&messages).Error; err != nil {
+		http.Error(w, "Failed to fetch messages", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"messages": messages,
+		"limit":    limit,
+		"offset":   offset,
 	})
 }

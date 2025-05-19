@@ -63,7 +63,7 @@ const isShowDetail = ref(false)
 const newMessage = ref('')
 const currentUser = ref<User>({ id: '1', username: 'You', name: 'You' })
 const messages = ref<MessageType[]>([])
-    const { ws, connectWebSocket, disconnectWebSocket } = useWebSocket(
+const { ws, connectWebSocket } = useWebSocket(
     currentUser.value,
     props.selectedChat,
     (msg: MessageType) => {
