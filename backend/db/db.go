@@ -24,7 +24,7 @@ func InitDB() *gorm.DB {
 	db.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";")
 
 	// AutoMigrate create or update table base on model
-	err = db.AutoMigrate(&models.Chat{}, &models.Message{}, &models.User{}, &models.ChatParticipant{})
+	err = db.AutoMigrate(&models.Chat{}, &models.User{}, &models.Message{}, &models.ChatParticipant{})
 	if err != nil {
 		log.Fatal("Failed to migrate database: ", err)
 	}

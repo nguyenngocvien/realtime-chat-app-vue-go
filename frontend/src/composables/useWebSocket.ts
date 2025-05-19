@@ -2,25 +2,20 @@ import { ref, onBeforeUnmount } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import type { Message as MessageType, Chat, User } from '@/types'
 
-const WS_BASE_URL = import.meta.env.VITE_WS_URL
-
 export function useWebSocket(currentUser: User, selectedChat: Chat | null, onMessageReceived: (msg: MessageType) => void) {
     const ws = ref<WebSocket | null>(null)
     const reconnectTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
     const isManuallyClosed = ref(false)
 
     function connectWebSocket() {
+        const token = localStorage.getItem('token')
+        ws.value = new WebSocket(`ws://localhost:8080/ws?token=${token}`)
         if (ws.value) {
             ws.value.close()
         }
         if (!selectedChat) return
 
         isManuallyClosed.value = false // reset flag
-
-        const url = `${WS_BASE_URL}?userId=${currentUser.id}`
-        console.log('Connecting to WebSocket:', url)
-        
-        ws.value = new WebSocket(url)
 
         ws.value.onopen = () => {
             console.log('WebSocket connected')

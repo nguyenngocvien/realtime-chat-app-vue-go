@@ -13,6 +13,8 @@ type Config struct {
 	DBPassword string
 	DBName     string
 	DBPort     string
+
+	JWTSecretKey string
 }
 
 var AppConfig *Config
@@ -30,6 +32,8 @@ func LoadConfig() {
 		DBPassword: getEnv("DB_PASSWORD", "123456"),
 		DBName:     getEnv("DB_NAME", "chatdb"),
 		DBPort:     getEnv("DB_PORT", "5432"),
+
+		JWTSecretKey: getEnv("JWT_SECRET_KEY", "1234567890"),
 	}
 }
 

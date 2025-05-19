@@ -3,95 +3,96 @@ package handlers
 import (
 	"log"
 	"net/http"
-	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/websocket"
+	"github.com/nguyenngocvien/realtime-chat-app/config"
 	"github.com/nguyenngocvien/realtime-chat-app/models"
 	"gorm.io/gorm"
 )
 
+var clients = make(map[*websocket.Conn]string) // userId -> conn
+var broadcast = make(chan models.Message)
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		return true // Adjust for production
+		return true // Cập nhật sau khi deploy
 	},
 }
 
-var clients = make(map[*websocket.Conn]string) // Map connection to user ID
-var broadcast = make(chan models.Message)
-var dbConn *gorm.DB
-
 func Init(db *gorm.DB) {
-	dbConn = db
-	go handleMessages()
-}
-
-type ClientMessage struct {
-	RecipientID string `json:"recipientId"`
-	Text        string `json:"text"`
+	go handleMessages(db)
 }
 
 func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	// Kiểm tra JWT từ query param
+	tokenString := r.URL.Query().Get("token")
+	if tokenString == "" {
+		http.Error(w, "Token required", http.StatusUnauthorized)
+		return
+	}
+
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, http.ErrAbortHandler
+		}
+		return []byte(config.AppConfig.JWTSecretKey), nil
+	})
+
+	if err != nil || !token.Valid {
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Invalid token claims", http.StatusUnauthorized)
+		return
+	}
+
+	userID, ok := claims["userId"].(string)
+	if !ok {
+		http.Error(w, "Invalid userId in token", http.StatusUnauthorized)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println("Upgrade error:", err)
+		log.Println("WebSocket upgrade error:", err)
 		return
 	}
-	defer conn.Close()
 
-	userID := r.URL.Query().Get("userId")
-	if userID == "" {
-		log.Println("Missing userId")
-		return
-	}
 	clients[conn] = userID
 
-	// Send existing messages
-	var messages []models.Message
-	dbConn.Where("sender_id = ? OR recipient_id = ?", userID, userID).Find(&messages)
-	for _, msg := range messages {
-		err := conn.WriteJSON(msg)
-		if err != nil {
-			log.Println("Write error:", err)
-			conn.Close()
-			delete(clients, conn)
-			return
-		}
-	}
-
 	for {
-		var clientMsg ClientMessage
-		err := conn.ReadJSON(&clientMsg)
+		var msg models.Message
+		err := conn.ReadJSON(&msg)
 		if err != nil {
-			log.Println("Read error:", err)
+			log.Println("WebSocket read error:", err)
 			delete(clients, conn)
 			break
 		}
 
-		msg := models.Message{
-			SenderID:    userID,
-			RecipientID: clientMsg.RecipientID,
-			Text:        clientMsg.Text,
-			Timestamp:   time.Now(),
-		}
-		dbConn.Create(&msg)
+		msg.SenderID = userID
 		broadcast <- msg
 	}
 }
 
-func handleMessages() {
+func handleMessages(db *gorm.DB) {
 	for {
 		msg := <-broadcast
-		for client, userID := range clients {
-			if userID == msg.SenderID || userID == msg.RecipientID {
-				err := client.WriteJSON(msg)
+		for conn, userID := range clients {
+			if msg.RecipientID == userID || msg.SenderID == userID {
+				err := conn.WriteJSON(msg)
 				if err != nil {
-					log.Println("Write error:", err)
-					client.Close()
-					delete(clients, client)
+					log.Println("WebSocket write error:", err)
+					conn.Close()
+					delete(clients, conn)
 				}
 			}
+		}
+
+		if err := db.Create(&msg).Error; err != nil {
+			log.Println("Failed to save message:", err)
 		}
 	}
 }

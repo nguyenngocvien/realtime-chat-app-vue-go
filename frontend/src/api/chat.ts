@@ -3,52 +3,17 @@ import axios from 'axios'
 
 export async function fetchChatsByUserId(userId: string): Promise<Chat[]> {
     try {
-        // const response = await axios.get(`/api/users/${userId}/chats`)
-        // return response.data.chats || []
-
-        // Dữ liệu giả lập khi API lỗi
-        const mockChats: Chat[] = [
-            {
-                id: '1',
-                type: 'user',
-                name: 'John Doe',
-                avatar: 'https://i.pravatar.cc/150?img=1',
-                lastMessage: {
-                    id: 'm1',
-                    content: 'Hello!',
-                    senderId: '1',
-                    senderName: 'John Doe',
-                    timestamp: new Date().toISOString(),
-                    type: 'text',
-                    isMine: false
-                },
-                unreadCount: 2,
-            },
-            {
-                id: '2',
-                type: 'group',
-                name: 'Friends Group',
-                avatar: 'https://i.pravatar.cc/150?img=2',
-                lastMessage: {
-                    id: 'm2',
-                    content: 'See you tomorrow!',
-                    senderId: '3',
-                    senderName: 'Alice',
-                    timestamp: new Date().toISOString(),
-                    type: 'text',
-                    isMine: false
-                },
-                unreadCount: 0,
-            },
-        ]
-
-        return mockChats
-
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`/api/users/${userId}/chats`, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+        return response.data.chats || [];
     } catch (error) {
-        console.error('Failed to fetch chats, returning mock data:', error)
+        console.error('Failed to fetch chats, returning mock data:', error);
+        return [];
     }
-
-    return []
 }
 
 export async function fetchMessages(chatId: string): Promise<Message[]> {
