@@ -25,8 +25,9 @@ func main() {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Received %s request to %s", r.Method, r.URL.Path)
 			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Max-Age", "86400") // Cache preflight 24h
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
 				return
@@ -36,12 +37,14 @@ func main() {
 	})
 
 	// Routes without authorize
-	router.HandleFunc("/api/login", handlers.Login).Methods("POST")
+	router.HandleFunc("/api/login", handlers.Login).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/signup", handlers.Signup).Methods("POST", "OPTIONS")
 
 	// Routes needs JWT
 	protected := router.PathPrefix("/api").Subrouter()
 	protected.Use(handlers.JWTMiddleware)
-	protected.HandleFunc("/users/{userId}/chats", handlers.GetChatsByUserID).Methods("GET")
+	protected.HandleFunc("/chats", handlers.CreateGroupChat).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/users/{userId}/chats", handlers.GetChatsByUserID).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/chats/{chatId}/messages", handlers.GetMessagesByChatID).Methods("GET", "OPTIONS")
 
 	// Websocket

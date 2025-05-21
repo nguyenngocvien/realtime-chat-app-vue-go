@@ -62,9 +62,13 @@
 
 <script lang="ts" setup>
 import { ref, reactive, onMounted, nextTick, ComponentPublicInstance } from 'vue'
-import { fetchChatsByUserId } from '@/api/chat'
+import { createGroupChat, fetchChatsByUserId } from '@/api/chat'
 import type { Chat } from '@/types'
 import Icon from './base/Icon.vue'
+import { useRouter } from 'vue-router';
+import { parseJWT } from '@/utils';
+
+const router = useRouter();
 
 const props = defineProps<{
     selectedChat: Chat | null
@@ -81,20 +85,27 @@ const selectedChatId = ref('')
 const imageError = ref(false)
 
 // chatRefs: map lưu ref phần tử chat item, dùng cho scrollIntoView
-const chatRefs = reactive<Record<string, Element | ComponentPublicInstance  | null>>({})
+const chatRefs = reactive<Record<string, Element | ComponentPublicInstance | null>>({})
 
 async function loadChats() {
-    const userId = '1' // giả sử userId = 1, có thể lấy từ auth hoặc props
+    const token = localStorage.getItem('token');
+    if (!token) {
+        router.push('/login');
+        return;
+    }
+    
+    const userId = parseJWT(token).userId;
     try {
-        chats.value = await fetchChatsByUserId(userId)
+        chats.value = await fetchChatsByUserId(userId);
     } catch (error) {
-        console.error('Failed to load chats:', error)
+        console.error('Failed to load chats:', error);
     }
 }
 
 function selectChat(chat: Chat) {
     selectedChatId.value = chat.id
     emit('select-chat', chat)
+    router.push(`/chats/${chat.id}`);
 
     nextTick(() => {
         const el = chatRefs[chat.id]
@@ -108,36 +119,34 @@ function selectChat(chat: Chat) {
     }
 }
 
-function createGroup() {
+async function createGroup() {
     if (newGroupName.value.trim() === '') {
         alert('Please enter group name')
         return
     }
 
-    chats.value.push({
-        id: (chats.value.length + 1).toString(),
-        name: newGroupName.value,
-        lastMessage: {
-            id: '0',
-            content: 'Group has been created',
-            senderId: '',
-            senderName: '',
-            timestamp: new Date().toISOString(),
-            type: 'text',
-            isMine: false
-        },
-        type: 'group',
-        unreadCount: 0,
-        avatar: '' // nếu cần avatar mặc định
-    })
+    const token = localStorage.getItem('token');
+    if (!token) {
+        router.push('/login');
+        return;
+    }
+    const userId = parseJWT(token).userId;
 
-    newGroupName.value = ''
-    showModal.value = false
+    try {
+        const newChat = await createGroupChat(userId, newGroupName.value);
+        chats.value.push(newChat);
+        newGroupName.value = '';
+        showModal.value = false;
+    } catch (error) {
+        console.error('Failed to create group:', error);
+        alert('Failed to create group');
+    }
 }
 
 onMounted(() => {
     loadChats()
 })
+
 </script>
 
 <style scoped>
