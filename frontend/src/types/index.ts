@@ -30,3 +30,16 @@ export interface Chat {
     unreadCount: number
     participants?: User[]
 }
+
+export interface SearchUser {
+    id: string;
+    username: string;
+}
+
+export interface SearchMessage {
+    id: string;
+    chatId: string;
+    chatName: string;
+    content: string;
+    timestamp: string;
+}

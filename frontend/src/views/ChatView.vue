@@ -2,7 +2,7 @@
     <div class="h-screen flex flex-col bg-gray-500">
         <!-- Top Bar -->
         <div class="flex justify-center">
-            <TopBar />
+            <TopBar @select-user="handleSelectUser" @select-message="handleSelectMessage" />
         </div>
 
         <!-- Main Layout -->
@@ -14,7 +14,7 @@
                         <ChatList :selected-chat="selectedChat" @select-chat="onSelectChat" />
                     </div>
                     <div class="flex-1">
-                        <ChatBox :selected-chat="selectedChat"/>
+                        <ChatBox :selected-chat="selectedChat" />
                     </div>
                 </div>
             </main>
@@ -24,17 +24,40 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import ChatList from '../components/ChatList.vue';
-import type { Chat } from '@/types';
+import type { Chat, SearchMessage, SearchUser } from '@/types';
 import TopBar from '@/components/TopBar.vue';
 import ChatBox from '@/components/ChatBox.vue';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
 
 const selectedChat = ref<Chat | null>(null);
+const selectedMessageId = ref<string>('');
 
 function onSelectChat(chat: Chat) {
     selectedChat.value = chat;
 }
+
+function handleSelectUser(user: SearchUser) {
+    // Gửi sự kiện đến ChatList.vue
+    // Logic tạo chat mới được xử lý trong ChatList.vue
+}
+
+function handleSelectMessage(message: SearchMessage) {
+    selectedMessageId.value = message.id;
+    router.push(`/chats/${message.chatId}`);
+}
+
+onMounted(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        router.push('/login');
+        return;
+    }
+})
+
 </script>
 
 <style scoped></style>

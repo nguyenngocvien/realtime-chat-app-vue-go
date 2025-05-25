@@ -11,8 +11,35 @@
 
             <!-- Search Bar -->
             <div class="flex-1 mx-4 max-w-md">
-                <input type="text" placeholder="Search..."
-                    class="w-full p-2 rounded-lg bg-gray-400 text-gray-600 placeholder-gray-500 focus:outline-none focus:shadow-md focus:bg-gray-100" />
+                <div class="flex items-center gap-4">
+                    <input v-model="searchQuery" type="text" placeholder="Search..."
+                        class="w-full p-2 rounded-lg bg-gray-400 text-gray-600 placeholder-gray-500 focus:outline-none focus:shadow-md focus:bg-gray-100"
+                        @input="handleSearch" @focus="showDropdown = true" />
+                </div>
+
+                <!-- Dropdown -->
+                <div v-if="showDropdown && (users.length > 0 || messages.length > 0)"
+                    class="absolute top-16 left-4 right-4 bg-white border rounded-md shadow-lg z-10 max-h-96 overflow-y-auto">
+                    <div v-if="users.length > 0" class="p-2">
+                        <h4 class="text-sm font-semibold text-gray-700 mb-2">Users</h4>
+                        <div v-for="user in users" :key="user.id" class="p-2 hover:bg-gray-100 cursor-pointer"
+                            @click="selectUser(user)">
+                            {{ user.username }}
+                        </div>
+                    </div>
+                    <div v-if="messages.length > 0" class="p-2">
+                        <h4 class="text-sm font-semibold text-gray-700 mb-2">Messages</h4>
+                        <div v-for="message in messages" :key="message.id" class="p-2 hover:bg-gray-100 cursor-pointer"
+                            @click="selectMessage(message)">
+                            <p class="text-sm font-medium">{{ message.chatName }}</p>
+                            <p class="text-sm text-gray-600 truncate">{{ message.content }}</p>
+                        </div>
+                    </div>
+                    <button class="p-2 rounded bg-blue-500 text-white hover:bg-blue-600 transition duration-200"
+                        @click="clearSearch">
+                        Close
+                    </button>
+                </div>
             </div>
 
             <!-- User Avatar -->
@@ -23,19 +50,79 @@
     </header>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue'
+<script lang="ts" setup>
+import { searchMessages, searchUsers } from '@/api/chat';
+import { SearchMessage, SearchUser } from '@/types';
+import { watch } from 'fs';
+import { defineComponent, onBeforeUnmount, onMounted, ref } from 'vue'
 
-export default defineComponent({
-    name: 'TopBar',
-    emits: ['toggle-sidebar'],
-    methods: {
-    handleToggleSidebar() {
-      console.log('Hamburger clicked, emitting toggle-sidebar');
-      this.$emit('toggle-sidebar');
-    }
+const searchQuery = ref('');
+const users = ref<SearchUser[]>([]);
+const messages = ref<SearchMessage[]>([]);
+const showDropdown = ref(false);
+
+const emit = defineEmits<{
+    (e: 'toggle-sidebar'): void;
+    (e: 'select-user', user: SearchUser): void;
+    (e: 'select-message', message: SearchMessage): void;
+}>();
+
+function handleToggleSidebar() {
+  emit('toggle-sidebar');
+}
+
+async function handleSearch() {
+  if (searchQuery.value.trim() === '') {
+    users.value = [];
+    messages.value = [];
+    return;
   }
-})
+
+  try {
+    const [userResults, messageResults] = await Promise.all([
+      searchUsers(searchQuery.value),
+      searchMessages(searchQuery.value),
+    ]);
+    users.value = userResults;
+    messages.value = messageResults;
+  } catch (error) {
+    console.error('Search failed:', error);
+  }
+}
+
+function selectUser(user: SearchUser) {
+  emit('select-user', user);
+  clearSearch();
+}
+
+function selectMessage(message: SearchMessage) {
+  emit('select-message', message);
+  clearSearch();
+}
+
+function clearSearch() {
+  searchQuery.value = '';
+  users.value = [];
+  messages.value = [];
+  showDropdown.value = false;
+}
+
+// Close dropdown on outside click
+function handleClickOutside(event: MouseEvent) {
+  const target = event.target as HTMLElement;
+  if (!target.closest('.bg-white.p-4.border-b.border-gray-200')) {
+    showDropdown.value = false;
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
+
 </script>
 
 <style scoped>

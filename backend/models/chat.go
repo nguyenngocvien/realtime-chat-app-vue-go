@@ -19,5 +19,5 @@ type Chat struct {
 	CreatedAt    time.Time `gorm:"autoCreateTime"`
 	UpdatedAt    time.Time `gorm:"autoUpdateTime"`
 	Participants []User    `gorm:"many2many:chat_participants;constraint:OnDelete:CASCADE"`
-	Messages     []Message `gorm:"foreignKey:RecipientID;constraint:OnDelete:CASCADE"`
+	Messages     []Message `gorm:"foreignKey:ChatID;constraint:OnDelete:CASCADE"`
 }

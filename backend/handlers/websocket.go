@@ -81,7 +81,7 @@ func handleMessages(db *gorm.DB) {
 	for {
 		msg := <-broadcast
 		for conn, userID := range clients {
-			if msg.RecipientID == userID || msg.SenderID == userID {
+			if msg.ChatID == userID || msg.SenderID == userID {
 				err := conn.WriteJSON(msg)
 				if err != nil {
 					log.Println("WebSocket write error:", err)

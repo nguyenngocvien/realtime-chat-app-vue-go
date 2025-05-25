@@ -52,7 +52,7 @@
                     class="w-full p-2 border border-gray-300 rounded mb-8 focus:outline-none" />
                 <div class="flex justify-end gap-2">
                     <button @click="showModal = false" class="p-2 rounded bg-gray-300 hover:bg-gray-400">Cancel</button>
-                    <button @click="createGroup"
+                    <button @click="createGroupChat"
                         class="p-2 rounded bg-blue-500 text-white hover:bg-blue-600">Create</button>
                 </div>
             </div>
@@ -62,8 +62,8 @@
 
 <script lang="ts" setup>
 import { ref, reactive, onMounted, nextTick, ComponentPublicInstance } from 'vue'
-import { createGroupChat, fetchChatsByUserId } from '@/api/chat'
-import type { Chat } from '@/types'
+import { createGroup, fetchChatsByUserId } from '@/api/chat'
+import type { Chat, SearchUser } from '@/types'
 import Icon from './base/Icon.vue'
 import { useRouter } from 'vue-router';
 import { parseJWT } from '@/utils';
@@ -76,6 +76,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     (e: 'select-chat', chat: Chat): void
+    (e: 'select-user', user: SearchUser): void;
 }>()
 
 const chats = ref<Chat[]>([])
@@ -119,7 +120,7 @@ function selectChat(chat: Chat) {
     }
 }
 
-async function createGroup() {
+async function createGroupChat() {
     if (newGroupName.value.trim() === '') {
         alert('Please enter group name')
         return
@@ -133,7 +134,7 @@ async function createGroup() {
     const userId = parseJWT(token).userId;
 
     try {
-        const newChat = await createGroupChat(userId, newGroupName.value);
+        const newChat = await createGroup(userId, newGroupName.value);
         chats.value.push(newChat);
         newGroupName.value = '';
         showModal.value = false;

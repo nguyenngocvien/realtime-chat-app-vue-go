@@ -19,22 +19,7 @@ const routes: RouteRecordRaw[] = [
     name: 'Chats',
     component: ChatView,
     meta: { requiresAuth: true },
-    children: [
-      {
-        path: ':chatId',
-        name: 'ChatBox',
-        component: () => import('../components/ChatBox.vue'),
-        props: true,
-      },
-    ],
-  },
-  {
-    path: '/',
-    redirect: (to) => {
-      const token = localStorage.getItem('token');
-      return token ? '/' : '/login';
-    },
-  },
+  }
 ];
 
 const router = createRouter({

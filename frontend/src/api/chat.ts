@@ -1,4 +1,4 @@
-import { Chat, Message } from '@/types'
+import { Chat, Message, SearchMessage, SearchUser } from '@/types'
 import axios, { AxiosError } from 'axios'
 
 interface ErrorResponse {
@@ -19,7 +19,7 @@ export async function fetchChatsByUserId(userId: string): Promise<Chat[]> {
     }
 }
 
-export async function createGroupChat(userId: string, groupName: string): Promise<Chat> {
+export async function createGroup(userId: string, groupName: string): Promise<Chat> {
     try {
         const token = localStorage.getItem('token');
         const response = await axios.post(
@@ -54,4 +54,34 @@ export async function fetchMessages(chatId: string): Promise<Message[]> {
 export async function fetchChatMedia(chatId: string) {
     const res = await axios.get(`/api/chats/${chatId}/media`)
     return res.data.media
+}
+
+export async function searchUsers(query: string): Promise<SearchUser[]> {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`/api/users/search`, {
+            params: { q: query },
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 5000,
+        });
+        return response.data.users;
+    } catch (error) {
+        const axiosError = error as AxiosError<ErrorResponse>;
+        throw new Error(axiosError.response?.data?.error || 'Failed to search users');
+    }
+}
+
+export async function searchMessages(query: string): Promise<SearchMessage[]> {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`/api/messages/search`, {
+            params: { q: query },
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 5000,
+        });
+        return response.data.messages;
+    } catch (error) {
+        const axiosError = error as AxiosError<ErrorResponse>;
+        throw new Error(axiosError.response?.data?.error || 'Failed to search messages');
+    }
 }
